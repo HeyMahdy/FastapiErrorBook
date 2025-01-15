@@ -5,6 +5,8 @@
 ## Solution:
 1. Uninstall the current `psycopg2` package:
    pip uninstall psycopg2
+
+   
    pip install psycopg2-binary
 
 
