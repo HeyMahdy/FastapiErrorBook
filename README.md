@@ -92,3 +92,76 @@ This makes your code cleaner and more maintainable.
 
 By following these steps, you can resolve `ModuleNotFoundError` issues in FastAPI projects and improve the organization of your codebase.
 
+# <span style="color: red;">&#10060; </span> ValueError: Unable to generate pydantic-core schema for <class 'redis_om.model.HashModel'>. 
+Implement `__get_pydantic_core_schema__` on your type to fully support it.:  
+
+# FastAPI with Redis-OM Issue and Solution
+
+## Problem
+When using `redis-om`'s `HashModel` as a request model in FastAPI, you may encounter the following error:
+
+```plaintext
+ValueError: Unable to generate pydantic-core schema for <class 'redis_om.model.HashModel'>. 
+Implement `__get_pydantic_core_schema__` on your type to fully support it.
+
+Root Cause
+
+    FastAPI relies on Pydantic to validate request bodies.
+    redis-om's HashModel is not fully compatible with Pydantic v2.x, as it doesn't implement the required method __get_pydantic_core_schema__.
+    FastAPI cannot validate or parse the request body when HashModel is used directly.
+
+Solution
+
+To resolve the issue:
+
+    Use a Pydantic Model for Validation: Create a separate Pydantic model (ProductSchema) to handle request validation in FastAPI.
+    Convert to HashModel for Redis: After validation, convert the Pydantic model into a HashModel instance for Redis operations.
+
+Example Code
+
+from fastapi import APIRouter
+from redis_om import get_redis_connection, HashModel
+from pydantic import BaseModel
+
+# Redis connection
+redis = get_redis_connection(
+    host="redis-13296.c301.ap-south-1-1.ec2.redns.redis-cloud.com",
+    port=13296,
+    password="jM0ax5iDfB9IrhIccwtSrMjhb8vgmQtR",
+    decode_responses=True
+)
+
+# Redis-OM HashModel
+class Product(HashModel):
+    name: str
+    price: float
+    quantity: int
+
+    class Meta:
+        database = redis
+
+# Pydantic model for validation
+class ProductSchema(BaseModel):
+    name: str
+    price: float
+    quantity: int
+
+# FastAPI Router
+router = APIRouter()
+
+@router.post('/products')
+async def add_product(product: ProductSchema):
+    # Convert Pydantic model to Redis-OM model
+    redis_product = Product(**product.dict())
+    return redis_product.save()
+
+@router.get('/products/{pk}')
+async def get_product(pk: str):
+    # Retrieve a product by primary key
+    return Product.get(pk)
+
+@router.delete('/products/{pk}')
+async def delete_product(pk: str):
+    # Delete a product by primary key
+    Product.delete(pk)
+    return {"message": f"Product {pk} deleted successfully."}
